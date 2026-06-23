@@ -25,7 +25,7 @@
 //
 // ============================================================
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 // ============================================================
@@ -65,10 +65,75 @@ function GoogleFonts() {
   );
 }
 
+/* ---------- Global CSS Animations ---------- */
+function GlobalStyles() {
+  return (
+    <style>{`
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes fadeInUpCard {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes shimmerBorder {
+        0% { background-position: -200% center; }
+        100% { background-position: 200% center; }
+      }
+      @keyframes shimmerBtn {
+        0% { left: -100%; }
+        100% { left: 200%; }
+      }
+      @keyframes bounceIn {
+        0% { transform: scale(0); }
+        60% { transform: scale(1.2); }
+        80% { transform: scale(0.95); }
+        100% { transform: scale(1); }
+      }
+      @keyframes pulseGlow {
+        0% { box-shadow: 0 0 0 0 rgba(201,168,76,0.6); }
+        70% { box-shadow: 0 0 0 15px rgba(201,168,76,0); }
+        100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); }
+      }
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(50px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes drawCheck {
+        from { stroke-dashoffset: 30; }
+        to { stroke-dashoffset: 0; }
+      }
+      @keyframes confettiFall {
+        0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+      }
+      @keyframes countUpAnim {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes fadeUpBtn {
+        0% { opacity: 0; transform: translateY(30px); }
+        60% { opacity: 1; transform: translateY(-6px); }
+        80% { transform: translateY(2px); }
+        100% { transform: translateY(0); }
+      }
+    `}</style>
+  );
+}
+
 /* ---------- Icons ---------- */
-const CheckIcon = () => (
+const CheckIcon = ({ animate }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 6 9 17 4 12" />
+    <polyline points="20 6 9 17 4 12" style={animate ? {
+      strokeDasharray: 30,
+      strokeDashoffset: 0,
+      animation: 'drawCheck 0.6s ease-out forwards',
+    } : {}} />
   </svg>
 );
 
@@ -86,6 +151,47 @@ const RefreshIcon = () => (
     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
   </svg>
 );
+
+/* ---------- Confetti Particles (CSS only) ---------- */
+function Confetti() {
+  const particles = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 40; i++) {
+      arr.push({
+        id: i,
+        left: `${Math.random() * 100}%`,
+        delay: `${Math.random() * 3}s`,
+        duration: `${2.5 + Math.random() * 2}s`,
+        size: `${4 + Math.random() * 8}px`,
+        color: ['#C9A84C', '#E8D5A3', '#D4AF37', '#F0E68C', '#FFD700'][Math.floor(Math.random() * 5)],
+        rotation: `${Math.random() * 360}deg`,
+      });
+    }
+    return arr;
+  }, []);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 100, overflow: 'hidden' }}>
+      {particles.map(p => (
+        <div
+          key={p.id}
+          style={{
+            position: 'absolute',
+            left: p.left,
+            top: '-10px',
+            width: p.size,
+            height: p.size,
+            background: p.color,
+            borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+            transform: `rotate(${p.rotation})`,
+            animation: `confettiFall ${p.duration} linear ${p.delay} infinite`,
+            opacity: 0.8,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 /* ---------- Hash Router ---------- */
 function getHashRoute() {
@@ -105,6 +211,7 @@ export default function App() {
   return (
     <>
       <GoogleFonts />
+      <GlobalStyles />
       <div style={{
         fontFamily: tokens.fontBody,
         background: tokens.bg,
@@ -116,6 +223,31 @@ export default function App() {
       </div>
     </>
   );
+}
+
+/* ---------- Animated Counter Hook ---------- */
+function useCountUp(target, duration = 1000, start = false) {
+  const [value, setValue] = useState(0);
+  const startTime = useRef(null);
+  const raf = useRef(null);
+
+  useEffect(() => {
+    if (!start) { setValue(0); return; }
+    startTime.current = null;
+    const animate = (timestamp) => {
+      if (!startTime.current) startTime.current = timestamp;
+      const progress = Math.min((timestamp - startTime.current) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(eased * target));
+      if (progress < 1) {
+        raf.current = requestAnimationFrame(animate);
+      }
+    };
+    raf.current = requestAnimationFrame(animate);
+    return () => { if (raf.current) cancelAnimationFrame(raf.current); };
+  }, [target, duration, start]);
+
+  return value;
 }
 
 /* ============================================================
@@ -138,6 +270,7 @@ function VotingPage() {
   const [emailError, setEmailError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [tabSwitching, setTabSwitching] = useState(false);
 
   const isVotingClosed = localStorage.getItem('voting_closed') === 'true';
 
@@ -223,6 +356,12 @@ function VotingPage() {
     setSubmitted(true);
   }
 
+  function handleTabSwitch(key) {
+    setTabSwitching(true);
+    setActiveTab(key);
+    setTimeout(() => setTabSwitching(false), 300);
+  }
+
   if (submitted) {
     return (
       <div style={{
@@ -233,23 +372,54 @@ function VotingPage() {
         minHeight: '100vh',
         padding: 24,
         textAlign: 'center',
+        animation: 'fadeIn 0.6s ease-out',
+        background: tokens.navy,
       }}>
+        <Confetti />
         <div style={{
-          width: 64,
-          height: 64,
+          width: 80,
+          height: 80,
           borderRadius: '50%',
           background: tokens.gold,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: tokens.navy,
-          marginBottom: 24,
+          marginBottom: 28,
+          animation: 'bounceIn 0.8s ease-out 0.3s both',
         }}>
-          <CheckIcon />
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" style={{
+              strokeDasharray: 30,
+              strokeDashoffset: 30,
+              animation: 'drawCheck 0.8s ease-out 0.6s forwards',
+            }} />
+          </svg>
         </div>
-        <h1 style={{ fontFamily: tokens.fontHeading, fontSize: 28, fontWeight: 700, margin: '0 0 12px', color: tokens.gold }}>Thank you!</h1>
-        <p style={{ fontSize: 16, color: tokens.lavender, maxWidth: 400, lineHeight: 1.5 }}>
+        <h1 style={{
+          fontFamily: tokens.fontHeading,
+          fontSize: 36,
+          fontWeight: 700,
+          margin: '0 0 12px',
+          color: tokens.gold,
+          animation: 'fadeInUp 0.6s ease-out 0.8s both',
+        }}>Thank you!</h1>
+        <p style={{
+          fontSize: 17,
+          color: tokens.lavender,
+          maxWidth: 400,
+          lineHeight: 1.6,
+          animation: 'fadeInUp 0.6s ease-out 1.1s both',
+        }}>
           Your votes have been submitted.
+        </p>
+        <p style={{
+          fontSize: 14,
+          color: 'rgba(168,178,216,0.6)',
+          marginTop: 8,
+          animation: 'fadeInUp 0.6s ease-out 1.4s both',
+        }}>
+          We appreciate your participation.
         </p>
       </div>
     );
@@ -272,6 +442,7 @@ function VotingPage() {
           padding: '32px 40px',
           maxWidth: 480,
           width: '100%',
+          animation: 'fadeInUp 0.6s ease-out',
         }}>
           <h2 style={{ fontFamily: tokens.fontHeading, fontSize: 22, fontWeight: 700, margin: '0 0 8px', color: tokens.gold }}>Voting is currently closed</h2>
           <p style={{ fontSize: 15, color: tokens.lavender, margin: 0 }}>Please check back later.</p>
@@ -286,7 +457,7 @@ function VotingPage() {
       <header style={{
         textAlign: 'center',
         padding: '48px 20px 32px',
-        borderBottom: '1px solid #eee',
+        borderBottom: '1px solid rgba(201,168,76,0.2)',
         background: tokens.navy,
       }}>
         <h1 style={{
@@ -297,8 +468,9 @@ function VotingPage() {
           margin: '0 0 10px',
           color: tokens.gold,
           lineHeight: 1.2,
+          animation: 'fadeInUp 0.8s ease-out',
         }}>
-          👑 Mr & Miss AAAU 2026
+          👑 Mr & Miss AAAU 2024
         </h1>
         <p style={{
           fontFamily: tokens.fontBody,
@@ -307,10 +479,10 @@ function VotingPage() {
           color: tokens.lavender,
           margin: '0 0 24px',
           letterSpacing: '0.5px',
+          animation: 'fadeInUp 0.8s ease-out 0.2s both',
         }}>
           Cast your vote across all three categories
         </p>
-        {/* Decorative gold divider */}
         <div style={{
           width: '60%',
           maxWidth: 400,
@@ -318,6 +490,7 @@ function VotingPage() {
           background: tokens.gold,
           margin: '0 auto',
           opacity: 0.6,
+          animation: 'fadeIn 0.8s ease-out 0.4s both',
         }} />
       </header>
 
@@ -332,6 +505,7 @@ function VotingPage() {
         fontWeight: 600,
         color: '#888',
         flexWrap: 'wrap',
+        animation: 'fadeIn 0.6s ease-out 0.5s both',
       }}>
         {categories.map(cat => (
           <span key={cat.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -345,6 +519,7 @@ function VotingPage() {
               fontSize: 11,
               background: selections[cat.key] ? tokens.gold : '#ddd',
               color: selections[cat.key] ? tokens.navy : '#888',
+              transition: 'all 0.3s ease',
             }}>
               {selections[cat.key] ? <CheckIcon /> : ''}
             </span>
@@ -354,7 +529,7 @@ function VotingPage() {
         ))}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs with sliding indicator */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',
@@ -364,11 +539,12 @@ function VotingPage() {
         top: 0,
         background: '#fff',
         zIndex: 10,
+        animation: 'fadeIn 0.6s ease-out 0.6s both',
       }}>
         {categories.map(cat => (
           <button
             key={cat.key}
-            onClick={() => setActiveTab(cat.key)}
+            onClick={() => handleTabSwitch(cat.key)}
             style={{
               padding: '16px 24px',
               fontFamily: tokens.fontHeading,
@@ -377,19 +553,38 @@ function VotingPage() {
               color: activeTab === cat.key ? tokens.text : '#888',
               background: 'none',
               border: 'none',
-              borderBottom: `3px solid ${activeTab === cat.key ? tokens.gold : 'transparent'}`,
               cursor: 'pointer',
-              transition: 'all .2s',
+              transition: 'color 0.3s ease',
               letterSpacing: '0.5px',
+              position: 'relative',
             }}
           >
             {cat.label}
+            {activeTab === cat.key && (
+              <span style={{
+                position: 'absolute',
+                bottom: 0,
+                left: '10%',
+                right: '10%',
+                height: 3,
+                background: tokens.gold,
+                borderRadius: '2px 2px 0 0',
+                animation: 'fadeIn 0.3s ease',
+              }} />
+            )}
           </button>
         ))}
       </div>
 
       {/* Content */}
-      <main style={{ maxWidth: 900, margin: '0 auto', padding: '24px 20px' }}>
+      <main style={{
+        maxWidth: 900,
+        margin: '0 auto',
+        padding: '24px 20px',
+        opacity: tabSwitching ? 0 : 1,
+        transform: tabSwitching ? 'translateY(8px)' : 'translateY(0)',
+        transition: 'opacity 0.3s ease, transform 0.3s ease',
+      }}>
         {loading && (
           <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
             <div style={{
@@ -415,6 +610,7 @@ function VotingPage() {
             textAlign: 'center',
             fontSize: 14,
             fontWeight: 500,
+            animation: 'fadeInUp 0.4s ease-out',
           }}>
             {error}
           </div>
@@ -428,7 +624,7 @@ function VotingPage() {
           }}>
             {candidates
               .filter(c => c.category === activeTab)
-              .map(candidate => {
+              .map((candidate, idx) => {
                 const isSelected = selections[activeTab] === candidate.id;
                 return (
                   <div
@@ -437,14 +633,58 @@ function VotingPage() {
                     style={{
                       background: tokens.cardBg,
                       borderRadius: tokens.borderRadius,
-                      border: `2px solid ${isSelected ? tokens.gold : 'transparent'}`,
                       cursor: 'pointer',
                       overflow: 'hidden',
-                      transition: 'border-color .2s, transform .15s',
                       position: 'relative',
+                      animation: `fadeInUpCard 0.5s ease-out ${idx * 0.1}s both`,
+                      transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                      transform: 'translateY(0)',
+                      boxShadow: 'none',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateY(-8px)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(201, 168, 76, 0.4)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
                     }}
                   >
-                    {/* Checkmark badge */}
+                    {/* Animated gold border for selected */}
+                    {isSelected && (
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: tokens.borderRadius,
+                        padding: 2,
+                        background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.8), transparent, rgba(201,168,76,0.8), transparent)',
+                        backgroundSize: '200% 100%',
+                        animation: 'shimmerBorder 2s linear infinite',
+                        pointerEvents: 'none',
+                        zIndex: 1,
+                      }}>
+                        <div style={{
+                          width: '100%',
+                          height: '100%',
+                          background: tokens.cardBg,
+                          borderRadius: tokens.borderRadius - 2,
+                        }} />
+                      </div>
+                    )}
+
+                    {/* Pulse glow on selection */}
+                    {isSelected && (
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: tokens.borderRadius,
+                        animation: 'pulseGlow 1.5s ease-out',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      }} />
+                    )}
+
+                    {/* Checkmark badge with bounce */}
                     {isSelected && (
                       <div style={{
                         position: 'absolute',
@@ -458,10 +698,11 @@ function VotingPage() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        zIndex: 2,
+                        zIndex: 3,
                         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                        animation: 'bounceIn 0.5s ease-out',
                       }}>
-                        <CheckIcon />
+                        <CheckIcon animate />
                       </div>
                     )}
 
@@ -471,6 +712,8 @@ function VotingPage() {
                       aspectRatio: '1 / 1',
                       background: '#e0e0e0',
                       overflow: 'hidden',
+                      position: 'relative',
+                      zIndex: 2,
                     }}>
                       {candidate.photo_url ? (
                         <img
@@ -481,7 +724,10 @@ function VotingPage() {
                             height: '100%',
                             objectFit: 'cover',
                             display: 'block',
+                            transition: 'transform 0.4s ease',
                           }}
+                          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                         />
                       ) : (
                         <div style={{
@@ -499,7 +745,7 @@ function VotingPage() {
                     </div>
 
                     {/* Info */}
-                    <div style={{ padding: '14px 16px 16px' }}>
+                    <div style={{ padding: '14px 16px 16px', position: 'relative', zIndex: 2 }}>
                       <div style={{
                         fontFamily: tokens.fontHeading,
                         fontSize: 16,
@@ -524,7 +770,7 @@ function VotingPage() {
                         background: isSelected ? tokens.gold : '#fff',
                         color: isSelected ? tokens.navy : tokens.text,
                         border: `1.5px solid ${tokens.gold}`,
-                        transition: 'all .2s',
+                        transition: 'all 0.3s ease',
                       }}>
                         {isSelected ? (
                           <><CheckIcon /> Selected</>
@@ -540,7 +786,7 @@ function VotingPage() {
         )}
       </main>
 
-      {/* Sticky Submit */}
+      {/* Sticky Submit with shimmer */}
       {allSelected && (
         <div style={{
           position: 'fixed',
@@ -552,9 +798,8 @@ function VotingPage() {
           display: 'flex',
           justifyContent: 'center',
           zIndex: 20,
-          animation: 'fadeUp .4s ease-out',
+          animation: 'fadeUpBtn 0.6s ease-out',
         }}>
-          <style>{`@keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }`}</style>
           <button
             onClick={() => setShowConfirm(true)}
             style={{
@@ -566,10 +811,31 @@ function VotingPage() {
               fontSize: 15,
               fontWeight: 700,
               cursor: 'pointer',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+              boxShadow: '0 4px 20px rgba(201,168,76,0.3)',
               letterSpacing: '0.3px',
+              position: 'relative',
+              overflow: 'hidden',
+              transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.boxShadow = '0 6px 30px rgba(201,168,76,0.5)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 4px 20px rgba(201,168,76,0.3)';
             }}
           >
+            {/* Shimmer sweep */}
+            <span style={{
+              position: 'absolute',
+              top: 0,
+              left: '-100%',
+              width: '50%',
+              height: '100%',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+              animation: 'shimmerBtn 3s ease-in-out infinite',
+            }} />
             Submit My Votes
           </button>
         </div>
@@ -580,12 +846,13 @@ function VotingPage() {
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(10,22,40,0.55)',
+          background: 'rgba(10,22,40,0.7)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: 20,
           zIndex: 50,
+          animation: 'fadeIn 0.3s ease-out',
         }}>
           <div style={{
             background: '#fff',
@@ -596,11 +863,12 @@ function VotingPage() {
             overflowY: 'auto',
             padding: '28px 28px 24px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            animation: 'slideUp 0.4s ease-out',
           }}>
             <h2 style={{ fontFamily: tokens.fontHeading, fontSize: 20, fontWeight: 700, margin: '0 0 20px' }}>Confirm Your Votes</h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
-              {categories.map(cat => {
+              {categories.map((cat, idx) => {
                 const c = getCandidateById(selections[cat.key]);
                 return (
                   <div key={cat.key} style={{
@@ -610,6 +878,7 @@ function VotingPage() {
                     background: tokens.cardBg,
                     borderRadius: tokens.borderRadius,
                     padding: 10,
+                    animation: `fadeInUp 0.4s ease-out ${idx * 0.1}s both`,
                   }}>
                     <div style={{
                       width: 44,
@@ -634,7 +903,7 @@ function VotingPage() {
               })}
             </div>
 
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 20, animation: 'fadeInUp 0.4s ease-out 0.3s both' }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
                 Email Address
               </label>
@@ -652,16 +921,17 @@ function VotingPage() {
                   outline: 'none',
                   fontFamily: 'inherit',
                   boxSizing: 'border-box',
+                  transition: 'border-color 0.3s ease',
                 }}
               />
               {emailError && (
-                <div style={{ color: '#e74c3c', fontSize: 12, marginTop: 6, fontWeight: 500 }}>
+                <div style={{ color: '#e74c3c', fontSize: 12, marginTop: 6, fontWeight: 500, animation: 'fadeIn 0.3s ease' }}>
                   {emailError}
                 </div>
               )}
             </div>
 
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, animation: 'fadeInUp 0.4s ease-out 0.4s both' }}>
               <button
                 onClick={() => setShowConfirm(false)}
                 style={{
@@ -674,7 +944,10 @@ function VotingPage() {
                   fontWeight: 600,
                   cursor: 'pointer',
                   color: tokens.text,
+                  transition: 'all 0.2s ease',
                 }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f5f5f5'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fff'}
               >
                 Go Back
               </button>
@@ -692,6 +965,7 @@ function VotingPage() {
                   fontWeight: 700,
                   cursor: submitting ? 'not-allowed' : 'pointer',
                   opacity: submitting ? 0.7 : 1,
+                  transition: 'all 0.2s ease',
                 }}
               >
                 {submitting ? 'Submitting…' : 'Confirm & Submit'}
@@ -719,6 +993,7 @@ function AdminDashboard() {
 
   const [activeTab, setActiveTab] = useState('singles_male');
   const [votingClosed, setVotingClosed] = useState(() => localStorage.getItem('voting_closed') === 'true');
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const categories = [
     { key: 'singles_male', label: 'Singles Male' },
@@ -733,6 +1008,7 @@ function AdminDashboard() {
   async function fetchData() {
     setLoading(true);
     setError('');
+    setDataLoaded(false);
     const [{ data: candData, error: candErr }, { data: voteData, error: voteErr }] = await Promise.all([
       supabase.from('candidates').select('*').order('name', { ascending: true }),
       supabase.from('votes').select('*'),
@@ -742,6 +1018,7 @@ function AdminDashboard() {
     } else {
       setCandidates(candData || []);
       setVotes(voteData || []);
+      setDataLoaded(true);
     }
     setLoading(false);
   }
@@ -781,6 +1058,7 @@ function AdminDashboard() {
   }, [candidates, votes, activeTab]);
 
   const grandTotal = votes.length;
+  const animatedGrandTotal = useCountUp(grandTotal, 1000, dataLoaded);
 
   if (!loggedIn) {
     return (
@@ -798,6 +1076,7 @@ function AdminDashboard() {
           maxWidth: 360,
           width: '100%',
           textAlign: 'center',
+          animation: 'fadeInUp 0.6s ease-out',
         }}>
           <div style={{
             width: 44,
@@ -831,10 +1110,11 @@ function AdminDashboard() {
               fontFamily: 'inherit',
               marginBottom: pwError ? 6 : 14,
               boxSizing: 'border-box',
+              transition: 'border-color 0.3s ease',
             }}
           />
           {pwError && (
-            <div style={{ color: '#e74c3c', fontSize: 12, marginBottom: 14, fontWeight: 500 }}>
+            <div style={{ color: '#e74c3c', fontSize: 12, marginBottom: 14, fontWeight: 500, animation: 'fadeIn 0.3s ease' }}>
               {pwError}
             </div>
           )}
@@ -851,6 +1131,15 @@ function AdminDashboard() {
               fontSize: 14,
               fontWeight: 700,
               cursor: 'pointer',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'scale(1.02)';
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(201,168,76,0.3)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = 'none';
             }}
           >
             Log In
@@ -879,7 +1168,7 @@ function AdminDashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <h2 style={{ fontFamily: tokens.fontHeading, fontSize: 18, fontWeight: 700, margin: 0 }}>Admin Dashboard</h2>
           <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>
-            Grand total: <strong style={{ color: tokens.text }}>{grandTotal}</strong> votes cast
+            Grand total: <strong style={{ color: tokens.text, fontSize: 16 }}>{animatedGrandTotal}</strong> votes cast
           </div>
         </div>
 
@@ -895,6 +1184,7 @@ function AdminDashboard() {
               fontSize: 13,
               fontWeight: 700,
               cursor: 'pointer',
+              transition: 'all 0.2s ease',
             }}
           >
             {votingClosed ? 'Open Voting' : 'Close Voting'}
@@ -914,6 +1204,7 @@ function AdminDashboard() {
               display: 'flex',
               alignItems: 'center',
               gap: 6,
+              transition: 'all 0.2s ease',
             }}
           >
             <RefreshIcon /> Refresh
@@ -940,11 +1231,24 @@ function AdminDashboard() {
               color: activeTab === cat.key ? tokens.text : '#888',
               background: 'none',
               border: 'none',
-              borderBottom: `3px solid ${activeTab === cat.key ? tokens.gold : 'transparent'}`,
               cursor: 'pointer',
+              transition: 'color 0.3s ease',
+              position: 'relative',
             }}
           >
             {cat.label}
+            {activeTab === cat.key && (
+              <span style={{
+                position: 'absolute',
+                bottom: 0,
+                left: '10%',
+                right: '10%',
+                height: 3,
+                background: tokens.gold,
+                borderRadius: '2px 2px 0 0',
+                animation: 'fadeIn 0.3s ease',
+              }} />
+            )}
           </button>
         ))}
       </div>
@@ -977,6 +1281,7 @@ function AdminDashboard() {
             fontSize: 14,
             fontWeight: 500,
             marginBottom: 20,
+            animation: 'fadeInUp 0.4s ease-out',
           }}>
             {error}
           </div>
@@ -994,75 +1299,12 @@ function AdminDashboard() {
               gap: 10,
             }}>
               {leaderboard.rows.map((row, idx) => (
-                <div
+                <LeaderboardRow
                   key={row.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                    background: tokens.cardBg,
-                    borderRadius: tokens.borderRadius,
-                    padding: '12px 16px',
-                  }}
-                >
-                  <div style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    background: idx < 3 ? tokens.gold : '#ddd',
-                    color: idx < 3 ? tokens.navy : '#888',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    flexShrink: 0,
-                  }}>
-                    {idx + 1}
-                  </div>
-
-                  <div style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 6,
-                    background: '#ddd',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                  }}>
-                    {row.photo_url ? (
-                      <img src={row.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : null}
-                  </div>
-
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontFamily: tokens.fontHeading, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {row.name}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#888', marginTop: 2, fontWeight: 500 }}>
-                      {row.count} vote{row.count !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  <div style={{ width: 120, flexShrink: 0 }}>
-                    <div style={{
-                      height: 6,
-                      borderRadius: 3,
-                      background: '#ddd',
-                      overflow: 'hidden',
-                    }}>
-                      <div style={{
-                        width: `${row.pct}%`,
-                        height: '100%',
-                        background: tokens.gold,
-                        borderRadius: 3,
-                        transition: 'width .6s ease',
-                      }} />
-                    </div>
-                    <div style={{ fontSize: 11, color: '#888', marginTop: 4, textAlign: 'right', fontWeight: 600 }}>
-                      {row.pct.toFixed(1)}%
-                    </div>
-                  </div>
-                </div>
+                  row={row}
+                  idx={idx}
+                  dataLoaded={dataLoaded}
+                />
               ))}
 
               {leaderboard.rows.length === 0 && (
@@ -1074,6 +1316,91 @@ function AdminDashboard() {
           </>
         )}
       </main>
+    </div>
+  );
+}
+
+/* ---------- Animated Leaderboard Row ---------- */
+function LeaderboardRow({ row, idx, dataLoaded }) {
+  const animatedCount = useCountUp(row.count, 1000, dataLoaded);
+  const [barWidth, setBarWidth] = useState(0);
+
+  useEffect(() => {
+    if (dataLoaded) {
+      const timer = setTimeout(() => setBarWidth(row.pct), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [dataLoaded, row.pct]);
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        background: tokens.cardBg,
+        borderRadius: tokens.borderRadius,
+        padding: '12px 16px',
+        animation: `fadeInUpCard 0.5s ease-out ${idx * 0.08}s both`,
+      }}
+    >
+      <div style={{
+        width: 28,
+        height: 28,
+        borderRadius: '50%',
+        background: idx < 3 ? tokens.gold : '#ddd',
+        color: idx < 3 ? tokens.navy : '#888',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 12,
+        fontWeight: 800,
+        flexShrink: 0,
+      }}>
+        {idx + 1}
+      </div>
+
+      <div style={{
+        width: 40,
+        height: 40,
+        borderRadius: 6,
+        background: '#ddd',
+        overflow: 'hidden',
+        flexShrink: 0,
+      }}>
+        {row.photo_url ? (
+          <img src={row.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : null}
+      </div>
+
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontFamily: tokens.fontHeading, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {row.name}
+        </div>
+        <div style={{ fontSize: 12, color: '#888', marginTop: 2, fontWeight: 500 }}>
+          {animatedCount} vote{row.count !== 1 ? 's' : ''}
+        </div>
+      </div>
+
+      <div style={{ width: 120, flexShrink: 0 }}>
+        <div style={{
+          height: 6,
+          borderRadius: 3,
+          background: '#ddd',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            width: `${barWidth}%`,
+            height: '100%',
+            background: tokens.gold,
+            borderRadius: 3,
+            transition: 'width 1s ease-out',
+          }} />
+        </div>
+        <div style={{ fontSize: 11, color: '#888', marginTop: 4, textAlign: 'right', fontWeight: 600 }}>
+          {row.pct.toFixed(1)}%
+        </div>
+      </div>
     </div>
   );
 }
