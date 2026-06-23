@@ -3,12 +3,16 @@
 // ============================================================
 //
 // Table: candidates
-// | column     | type | constraints |
-// |------------|------|-------------|
-// | id         | text | PRIMARY KEY |
-// | name       | text | NOT NULL    |
-// | photo_url  | text |             |
-// | category   | text | NOT NULL    |  -- "singles_male", "singles_female", "couples"
+// | column      | type | constraints |
+// |-------------|------|-------------|
+// | id          | text | PRIMARY KEY |
+// | name        | text | NOT NULL    |
+// | photo_url   | text |             |
+// | photo_url_2 | text |             |  -- NEW: second person's photo for couples
+// | category    | text | NOT NULL    |  -- "singles_male", "singles_female", "couples"
+//
+// SQL to add the new column:
+// ALTER TABLE candidates ADD COLUMN photo_url_2 text;
 //
 // Table: votes
 // | column          | type      | constraints                          |
@@ -121,6 +125,16 @@ function GlobalStyles() {
         60% { opacity: 1; transform: translateY(-6px); }
         80% { transform: translateY(2px); }
         100% { transform: translateY(0); }
+      }
+      @keyframes ringSway {
+        0% { transform: rotate(-10deg); }
+        50% { transform: rotate(10deg); }
+        100% { transform: rotate(-10deg); }
+      }
+      @keyframes ringPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+        100% { transform: scale(1); }
       }
     `}</style>
   );
@@ -626,6 +640,20 @@ function VotingPage() {
               .filter(c => c.category === activeTab)
               .map((candidate, idx) => {
                 const isSelected = selections[activeTab] === candidate.id;
+                const isCouples = activeTab === 'couples';
+
+                if (isCouples) {
+                  return (
+                    <CouplesCard
+                      key={candidate.id}
+                      candidate={candidate}
+                      isSelected={isSelected}
+                      idx={idx}
+                      onSelect={() => selectCandidate(activeTab, candidate.id)}
+                    />
+                  );
+                }
+
                 return (
                   <div
                     key={candidate.id}
@@ -974,6 +1002,258 @@ function VotingPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ============================================================
+   COUPLES CARD COMPONENT
+   ============================================================ */
+function CouplesCard({ candidate, isSelected, idx, onSelect }) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const goldFilter = 'brightness(0) saturate(100%) invert(77%) sepia(55%) saturate(500%) hue-rotate(5deg) brightness(95%)';
+  const dropShadow = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
+
+  return (
+    <div
+      onClick={onSelect}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        background: tokens.cardBg,
+        borderRadius: tokens.borderRadius,
+        cursor: 'pointer',
+        overflow: 'hidden',
+        position: 'relative',
+        animation: `fadeInUpCard 0.5s ease-out ${idx * 0.1}s both`,
+        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+        transform: isHovered ? 'translateY(-8px)' : 'translateY(0)',
+        boxShadow: isHovered ? '0 0 20px rgba(201, 168, 76, 0.4)' : 'none',
+      }}
+    >
+      {/* Animated gold border for selected */}
+      {isSelected && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: tokens.borderRadius,
+          padding: 2,
+          background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.8), transparent, rgba(201,168,76,0.8), transparent)',
+          backgroundSize: '200% 100%',
+          animation: 'shimmerBorder 2s linear infinite',
+          pointerEvents: 'none',
+          zIndex: 1,
+        }}>
+          <div style={{
+            width: '100%',
+            height: '100%',
+            background: tokens.cardBg,
+            borderRadius: tokens.borderRadius - 2,
+          }} />
+        </div>
+      )}
+
+      {/* Pulse glow on selection */}
+      {isSelected && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: tokens.borderRadius,
+          animation: 'pulseGlow 1.5s ease-out',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }} />
+      )}
+
+      {/* Checkmark badge with bounce */}
+      {isSelected && (
+        <div style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          background: tokens.gold,
+          color: tokens.navy,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 3,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          animation: 'bounceIn 0.5s ease-out',
+        }}>
+          <CheckIcon animate />
+        </div>
+      )}
+
+      {/* Couples Photos Area */}
+      <div style={{
+        width: '100%',
+        padding: '24px 0',
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2,
+        overflow: 'hidden',
+      }}>
+        {/* Romantic gradient glow background */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(circle at center, rgba(201,168,76,0.2) 0%, rgba(201,168,76,0.05) 50%, transparent 70%)',
+          transition: 'opacity 0.3s ease',
+          opacity: isHovered || isSelected ? 1 : 0.6,
+        }} />
+
+        {/* Left Photo - 120px wide, 160px tall, portrait rectangular with rounded corners */}
+        <div style={{
+          width: 120,
+          height: 160,
+          borderRadius: 12,
+          overflow: 'hidden',
+          position: 'relative',
+          zIndex: 2,
+          marginRight: -16,
+          border: `3px solid ${isSelected ? tokens.gold : '#fff'}`,
+          boxShadow: isSelected ? '0 0 15px rgba(201,168,76,0.5)' : '0 2px 10px rgba(0,0,0,0.1)',
+          transition: 'all 0.3s ease',
+        }}>
+          {candidate.photo_url ? (
+            <img
+              src={candidate.photo_url}
+              alt="Partner 1"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+                transition: 'transform 0.4s ease',
+                transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+              }}
+            />
+          ) : (
+            <div style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: '#ddd',
+              color: '#999',
+              fontSize: 12,
+            }}>
+              No Photo
+            </div>
+          )}
+        </div>
+
+        {/* Wedding Rings Icon - positioned absolute, centered between photos, overlapping both */}
+        <div style={{
+          position: 'relative',
+          zIndex: 4,
+          width: 40,
+          height: 40,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginLeft: -4,
+          marginRight: -4,
+          animation: isHovered || isSelected ? 'ringPulse 1.5s ease-in-out infinite' : 'none',
+        }}>
+          <img
+            src="https://cdn-icons-png.flaticon.com/512/3074/3074987.png"
+            alt="Wedding Rings"
+            width={40}
+            height={40}
+            style={{
+              filter: `${goldFilter} ${dropShadow}`,
+              animation: 'ringSway 2s ease-in-out infinite',
+              display: 'block',
+            }}
+          />
+        </div>
+
+        {/* Right Photo - 120px wide, 160px tall, portrait rectangular with rounded corners */}
+        <div style={{
+          width: 120,
+          height: 160,
+          borderRadius: 12,
+          overflow: 'hidden',
+          position: 'relative',
+          zIndex: 2,
+          marginLeft: -16,
+          border: `3px solid ${isSelected ? tokens.gold : '#fff'}`,
+          boxShadow: isSelected ? '0 0 15px rgba(201,168,76,0.5)' : '0 2px 10px rgba(0,0,0,0.1)',
+          transition: 'all 0.3s ease',
+        }}>
+          {candidate.photo_url_2 ? (
+            <img
+              src={candidate.photo_url_2}
+              alt="Partner 2"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+                transition: 'transform 0.4s ease',
+                transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+              }}
+            />
+          ) : (
+            <div style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: '#ddd',
+              color: '#999',
+              fontSize: 12,
+            }}>
+              No Photo
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Couple Name */}
+      <div style={{ padding: '14px 16px 16px', position: 'relative', zIndex: 2, textAlign: 'center' }}>
+        <div style={{
+          fontFamily: tokens.fontHeading,
+          fontSize: 16,
+          fontWeight: 600,
+          marginBottom: 10,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}>
+          {candidate.name}
+        </div>
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '6px 14px',
+          borderRadius: 20,
+          fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: '0.3px',
+          textTransform: 'uppercase',
+          background: isSelected ? tokens.gold : '#fff',
+          color: isSelected ? tokens.navy : tokens.text,
+          border: `1.5px solid ${tokens.gold}`,
+          transition: 'all 0.3s ease',
+        }}>
+          {isSelected ? (
+            <><CheckIcon /> Selected</>
+          ) : (
+            'Select'
+          )}
+        </div>
+      </div>
     </div>
   );
 }
