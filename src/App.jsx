@@ -7,25 +7,46 @@
 // |-------------|------|-------------|
 // | id          | text | PRIMARY KEY |
 // | name        | text | NOT NULL    |
-// | photo_url   | text |             |
-// | photo_url_2 | text |             |  -- NEW: second person's photo for couples
-// | category    | text | NOT NULL    |  -- "singles_male", "singles_female", "couples"
+// | department  | text |             |  -- NEW: student department
+// | category    | text | NOT NULL    |
+//
+// Category values:
+//   "most_reserved_male", "most_reserved_female"
+//   "most_popular_male", "most_popular_female"
+//   "best_dressed_male", "best_dressed_female"
 //
 // SQL to add the new column:
-// ALTER TABLE candidates ADD COLUMN photo_url_2 text;
+// ALTER TABLE candidates ADD COLUMN department text;
 //
 // Table: votes
-// | column          | type      | constraints                          |
-// |-----------------|-----------|--------------------------------------|
-// | id              | int8      | PRIMARY KEY, auto_increment            |
-// | email           | text      | NOT NULL, UNIQUE                     |
-// | singles_male_id | text      | REFERENCES candidates(id)            |
-// | singles_female_id| text     | REFERENCES candidates(id)            |
-// | couples_id      | text      | REFERENCES candidates(id)            |
-// | created_at      | timestamp | DEFAULT now()                        |
+// | column                  | type      | constraints               |
+// |-------------------------|-----------|---------------------------|
+// | id                      | int8      | PRIMARY KEY, auto_increment |
+// | email                   | text      | NOT NULL, UNIQUE          |
+// | most_reserved_male_id   | text      | REFERENCES candidates(id) |
+// | most_reserved_female_id | text      | REFERENCES candidates(id) |
+// | most_popular_male_id    | text      | REFERENCES candidates(id) |
+// | most_popular_female_id  | text      | REFERENCES candidates(id) |
+// | best_dressed_male_id    | text      | REFERENCES candidates(id) |
+// | best_dressed_female_id  | text      | REFERENCES candidates(id) |
+// | created_at              | timestamp | DEFAULT now()             |
 //
 // IMPORTANT: Add a UNIQUE constraint on the `email` column in the votes table
 // so one email = one submission total.
+//
+// SQL to update votes table:
+// ALTER TABLE votes
+// DROP COLUMN IF EXISTS singles_male_id,
+// DROP COLUMN IF EXISTS singles_female_id,
+// DROP COLUMN IF EXISTS couples_id;
+//
+// ALTER TABLE votes
+// ADD COLUMN most_reserved_male_id text,
+// ADD COLUMN most_reserved_female_id text,
+// ADD COLUMN most_popular_male_id text,
+// ADD COLUMN most_popular_female_id text,
+// ADD COLUMN best_dressed_male_id text,
+// ADD COLUMN best_dressed_female_id text;
 //
 // ============================================================
 
@@ -135,6 +156,10 @@ function GlobalStyles() {
         0% { transform: scale(1); }
         50% { transform: scale(1.15); }
         100% { transform: scale(1); }
+      }
+      @keyframes scrollHint {
+        0%, 100% { transform: translateX(0); }
+        50% { transform: translateX(-8px); }
       }
     `}</style>
   );
@@ -273,12 +298,15 @@ function VotingPage() {
   const [error, setError] = useState(null);
 
   const [selections, setSelections] = useState({
-    singles_male: null,
-    singles_female: null,
-    couples: null,
+    most_reserved_male: null,
+    most_reserved_female: null,
+    most_popular_male: null,
+    most_popular_female: null,
+    best_dressed_male: null,
+    best_dressed_female: null,
   });
 
-  const [activeTab, setActiveTab] = useState('singles_male');
+  const [activeTab, setActiveTab] = useState('most_reserved_male');
   const [showConfirm, setShowConfirm] = useState(false);
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -289,12 +317,15 @@ function VotingPage() {
   const isVotingClosed = localStorage.getItem('voting_closed') === 'true';
 
   const categories = [
-    { key: 'singles_male', label: 'Singles Male' },
-    { key: 'singles_female', label: 'Singles Female' },
-    { key: 'couples', label: 'Couples' },
+    { key: 'most_reserved_male', label: 'Most Reserved — Male', shortLabel: 'Most Reserved M' },
+    { key: 'most_reserved_female', label: 'Most Reserved — Female', shortLabel: 'Most Reserved F' },
+    { key: 'most_popular_male', label: 'Most Popular — Male', shortLabel: 'Most Popular M' },
+    { key: 'most_popular_female', label: 'Most Popular — Female', shortLabel: 'Most Popular F' },
+    { key: 'best_dressed_male', label: 'Best Well Dressed — Male', shortLabel: 'Best Dressed M' },
+    { key: 'best_dressed_female', label: 'Best Well Dressed — Female', shortLabel: 'Best Dressed F' },
   ];
 
-  const allSelected = selections.singles_male && selections.singles_female && selections.couples;
+  const allSelected = categories.every(cat => selections[cat.key]);
 
   useEffect(() => {
     fetchCandidates();
@@ -355,9 +386,12 @@ function VotingPage() {
 
     const { error: insertErr } = await supabase.from('votes').insert({
       email: email.trim().toLowerCase(),
-      singles_male_id: selections.singles_male,
-      singles_female_id: selections.singles_female,
-      couples_id: selections.couples,
+      most_reserved_male_id: selections.most_reserved_male,
+      most_reserved_female_id: selections.most_reserved_female,
+      most_popular_male_id: selections.most_popular_male,
+      most_popular_female_id: selections.most_popular_female,
+      best_dressed_male_id: selections.best_dressed_male,
+      best_dressed_female_id: selections.best_dressed_female,
     });
 
     if (insertErr) {
@@ -484,7 +518,7 @@ function VotingPage() {
           lineHeight: 1.2,
           animation: 'fadeInUp 0.8s ease-out',
         }}>
-          👑 Mr & Miss AAAU 2024
+          AAAU Semester Awards 2026
         </h1>
         <p style={{
           fontFamily: tokens.fontBody,
@@ -495,7 +529,7 @@ function VotingPage() {
           letterSpacing: '0.5px',
           animation: 'fadeInUp 0.8s ease-out 0.2s both',
         }}>
-          Cast your vote across all three categories
+          Vote for your favourite students across all six categories
         </p>
         <div style={{
           width: '60%',
@@ -508,46 +542,47 @@ function VotingPage() {
         }} />
       </header>
 
-      {/* Progress */}
+      {/* Progress — 6 categories in 2 rows */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',
-        gap: 24,
+        gap: 16,
         padding: '16px 20px',
         borderBottom: '1px solid #eee',
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: 600,
         color: '#888',
         flexWrap: 'wrap',
         animation: 'fadeIn 0.6s ease-out 0.5s both',
+        maxWidth: 600,
+        margin: '0 auto',
       }}>
         {categories.map(cat => (
-          <span key={cat.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span key={cat.key} style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
             <span style={{
-              width: 18,
-              height: 18,
+              width: 16,
+              height: 16,
               borderRadius: '50%',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 11,
+              fontSize: 10,
               background: selections[cat.key] ? tokens.gold : '#ddd',
               color: selections[cat.key] ? tokens.navy : '#888',
               transition: 'all 0.3s ease',
+              flexShrink: 0,
             }}>
               {selections[cat.key] ? <CheckIcon /> : ''}
             </span>
-            {selections[cat.key] ? 'Selected' : 'Not yet selected'}
-            <span style={{ color: '#bbb' }}>— {cat.label}</span>
+            <span style={{ color: selections[cat.key] ? tokens.text : '#bbb' }}>
+              {cat.shortLabel}
+            </span>
           </span>
         ))}
       </div>
 
-      {/* Tabs with sliding indicator */}
+      {/* Tabs — 2 rows on desktop, scrollable on mobile */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        gap: 0,
         borderBottom: '1px solid #eee',
         position: 'sticky',
         top: 0,
@@ -555,39 +590,65 @@ function VotingPage() {
         zIndex: 10,
         animation: 'fadeIn 0.6s ease-out 0.6s both',
       }}>
-        {categories.map(cat => (
-          <button
-            key={cat.key}
-            onClick={() => handleTabSwitch(cat.key)}
-            style={{
-              padding: '16px 24px',
-              fontFamily: tokens.fontHeading,
-              fontSize: 18,
-              fontWeight: 500,
-              color: activeTab === cat.key ? tokens.text : '#888',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'color 0.3s ease',
-              letterSpacing: '0.5px',
-              position: 'relative',
-            }}
-          >
-            {cat.label}
-            {activeTab === cat.key && (
-              <span style={{
-                position: 'absolute',
-                bottom: 0,
-                left: '10%',
-                right: '10%',
-                height: 3,
-                background: tokens.gold,
-                borderRadius: '2px 2px 0 0',
-                animation: 'fadeIn 0.3s ease',
-              }} />
-            )}
-          </button>
-        ))}
+        {/* Desktop: 2 rows of 3 */}
+        <div style={{
+          display: 'none',
+          '@media (min-width: 640px)': { display: 'flex' },
+        }} className="desktop-tabs">
+          <style>{`
+            @media (min-width: 640px) {
+              .desktop-tabs { display: flex !important; flex-direction: column; }
+              .mobile-tabs { display: none !important; }
+            }
+            @media (max-width: 639px) {
+              .desktop-tabs { display: none !important; }
+              .mobile-tabs { display: flex !important; }
+            }
+          `}</style>
+          {/* Row 1 */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 0 }}>
+            {categories.slice(0, 3).map(cat => (
+              <TabButton
+                key={cat.key}
+                cat={cat}
+                isActive={activeTab === cat.key}
+                onClick={() => handleTabSwitch(cat.key)}
+              />
+            ))}
+          </div>
+          {/* Row 2 */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 0 }}>
+            {categories.slice(3, 6).map(cat => (
+              <TabButton
+                key={cat.key}
+                cat={cat}
+                isActive={activeTab === cat.key}
+                onClick={() => handleTabSwitch(cat.key)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Mobile: horizontal scroll */}
+        <div className="mobile-tabs" style={{
+          display: 'flex',
+          overflowX: 'auto',
+          gap: 0,
+          padding: '0 10px',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}>
+          <style>{`.mobile-tabs::-webkit-scrollbar { display: none; }`}</style>
+          {categories.map(cat => (
+            <TabButton
+              key={cat.key}
+              cat={cat}
+              isActive={activeTab === cat.key}
+              onClick={() => handleTabSwitch(cat.key)}
+              mobile
+            />
+          ))}
+        </div>
       </div>
 
       {/* Content */}
@@ -633,27 +694,13 @@ function VotingPage() {
         {!loading && !error && (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
             gap: 16,
           }}>
             {candidates
               .filter(c => c.category === activeTab)
               .map((candidate, idx) => {
                 const isSelected = selections[activeTab] === candidate.id;
-                const isCouples = activeTab === 'couples';
-
-                if (isCouples) {
-                  return (
-                    <CouplesCard
-                      key={candidate.id}
-                      candidate={candidate}
-                      isSelected={isSelected}
-                      idx={idx}
-                      onSelect={() => selectCandidate(activeTab, candidate.id)}
-                    />
-                  );
-                }
-
                 return (
                   <div
                     key={candidate.id}
@@ -668,6 +715,8 @@ function VotingPage() {
                       transition: 'transform 0.3s ease, box-shadow 0.3s ease',
                       transform: 'translateY(0)',
                       boxShadow: 'none',
+                      padding: '28px 20px',
+                      textAlign: 'center',
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.transform = 'translateY(-8px)';
@@ -734,78 +783,56 @@ function VotingPage() {
                       </div>
                     )}
 
-                    {/* Photo */}
+                    {/* Student Name */}
                     <div style={{
-                      width: '100%',
-                      aspectRatio: '1 / 1',
-                      background: '#e0e0e0',
-                      overflow: 'hidden',
+                      fontFamily: tokens.fontHeading,
+                      fontSize: 22,
+                      fontWeight: 700,
+                      color: tokens.gold,
+                      marginBottom: 8,
+                      position: 'relative',
+                      zIndex: 2,
+                      lineHeight: 1.3,
+                    }}>
+                      {candidate.name}
+                    </div>
+
+                    {/* Department */}
+                    <div style={{
+                      fontSize: 13,
+                      color: '#888',
+                      fontWeight: 500,
+                      marginBottom: 18,
+                      position: 'relative',
+                      zIndex: 2,
+                      letterSpacing: '0.3px',
+                    }}>
+                      {candidate.department || 'Department N/A'}
+                    </div>
+
+                    {/* Select Button */}
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 20px',
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: '0.3px',
+                      textTransform: 'uppercase',
+                      background: isSelected ? tokens.gold : '#fff',
+                      color: isSelected ? tokens.navy : tokens.text,
+                      border: `1.5px solid ${tokens.gold}`,
+                      transition: 'all 0.3s ease',
                       position: 'relative',
                       zIndex: 2,
                     }}>
-                      {candidate.photo_url ? (
-                        <img
-                          src={candidate.photo_url}
-                          alt={candidate.name}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            display: 'block',
-                            transition: 'transform 0.4s ease',
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-                          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-                        />
+                      {isSelected ? (
+                        <><CheckIcon /> Selected</>
                       ) : (
-                        <div style={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#bbb',
-                          fontSize: 14,
-                        }}>
-                          No Photo
-                        </div>
+                        'Select'
                       )}
-                    </div>
-
-                    {/* Info */}
-                    <div style={{ padding: '14px 16px 16px', position: 'relative', zIndex: 2 }}>
-                      <div style={{
-                        fontFamily: tokens.fontHeading,
-                        fontSize: 16,
-                        fontWeight: 600,
-                        marginBottom: 10,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}>
-                        {candidate.name}
-                      </div>
-                      <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 14px',
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        letterSpacing: '0.3px',
-                        textTransform: 'uppercase',
-                        background: isSelected ? tokens.gold : '#fff',
-                        color: isSelected ? tokens.navy : tokens.text,
-                        border: `1.5px solid ${tokens.gold}`,
-                        transition: 'all 0.3s ease',
-                      }}>
-                        {isSelected ? (
-                          <><CheckIcon /> Selected</>
-                        ) : (
-                          'Select'
-                        )}
-                      </div>
                     </div>
                   </div>
                 );
@@ -885,7 +912,7 @@ function VotingPage() {
           <div style={{
             background: '#fff',
             borderRadius: tokens.borderRadius,
-            maxWidth: 460,
+            maxWidth: 520,
             width: '100%',
             maxHeight: '90vh',
             overflowY: 'auto',
@@ -895,7 +922,7 @@ function VotingPage() {
           }}>
             <h2 style={{ fontFamily: tokens.fontHeading, fontSize: 20, fontWeight: 700, margin: '0 0 20px' }}>Confirm Your Votes</h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
               {categories.map((cat, idx) => {
                 const c = getCandidateById(selections[cat.key]);
                 return (
@@ -905,26 +932,34 @@ function VotingPage() {
                     gap: 12,
                     background: tokens.cardBg,
                     borderRadius: tokens.borderRadius,
-                    padding: 10,
-                    animation: `fadeInUp 0.4s ease-out ${idx * 0.1}s both`,
+                    padding: '12px 14px',
+                    animation: `fadeInUp 0.4s ease-out ${idx * 0.08}s both`,
                   }}>
                     <div style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 6,
-                      background: '#ddd',
-                      overflow: 'hidden',
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      background: tokens.gold,
+                      color: tokens.navy,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 12,
+                      fontWeight: 800,
                       flexShrink: 0,
                     }}>
-                      {c?.photo_url ? (
-                        <img src={c.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : null}
+                      {idx + 1}
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>
                         {cat.label}
                       </div>
-                      <div style={{ fontFamily: tokens.fontHeading, fontSize: 14, fontWeight: 600 }}>{c?.name || '—'}</div>
+                      <div style={{ fontFamily: tokens.fontHeading, fontSize: 15, fontWeight: 600, color: tokens.gold }}>
+                        {c?.name || '—'}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#888', marginTop: 1 }}>
+                        {c?.department || ''}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1006,255 +1041,41 @@ function VotingPage() {
   );
 }
 
-/* ============================================================
-   COUPLES CARD COMPONENT
-   ============================================================ */
-function CouplesCard({ candidate, isSelected, idx, onSelect }) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  const goldFilter = 'brightness(0) saturate(100%) invert(77%) sepia(55%) saturate(500%) hue-rotate(5deg) brightness(95%)';
-  const dropShadow = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))';
-
+/* ---------- Tab Button Component ---------- */
+function TabButton({ cat, isActive, onClick, mobile }) {
   return (
-    <div
-      onClick={onSelect}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+    <button
+      onClick={onClick}
       style={{
-        background: tokens.cardBg,
-        borderRadius: tokens.borderRadius,
+        padding: mobile ? '14px 18px' : '14px 20px',
+        fontFamily: tokens.fontHeading,
+        fontSize: mobile ? 15 : 16,
+        fontWeight: 500,
+        color: isActive ? tokens.text : '#888',
+        background: 'none',
+        border: 'none',
         cursor: 'pointer',
-        overflow: 'hidden',
+        transition: 'color 0.3s ease',
+        letterSpacing: '0.3px',
         position: 'relative',
-        animation: `fadeInUpCard 0.5s ease-out ${idx * 0.1}s both`,
-        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-        transform: isHovered ? 'translateY(-8px)' : 'translateY(0)',
-        boxShadow: isHovered ? '0 0 20px rgba(201, 168, 76, 0.4)' : 'none',
+        whiteSpace: 'nowrap',
+        flexShrink: mobile ? 0 : 1,
       }}
     >
-      {/* Animated gold border for selected */}
-      {isSelected && (
-        <div style={{
+      {cat.label}
+      {isActive && (
+        <span style={{
           position: 'absolute',
-          inset: 0,
-          borderRadius: tokens.borderRadius,
-          padding: 2,
-          background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.8), transparent, rgba(201,168,76,0.8), transparent)',
-          backgroundSize: '200% 100%',
-          animation: 'shimmerBorder 2s linear infinite',
-          pointerEvents: 'none',
-          zIndex: 1,
-        }}>
-          <div style={{
-            width: '100%',
-            height: '100%',
-            background: tokens.cardBg,
-            borderRadius: tokens.borderRadius - 2,
-          }} />
-        </div>
-      )}
-
-      {/* Pulse glow on selection */}
-      {isSelected && (
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: tokens.borderRadius,
-          animation: 'pulseGlow 1.5s ease-out',
-          pointerEvents: 'none',
-          zIndex: 0,
-        }} />
-      )}
-
-      {/* Checkmark badge with bounce */}
-      {isSelected && (
-        <div style={{
-          position: 'absolute',
-          top: 10,
-          right: 10,
-          width: 28,
-          height: 28,
-          borderRadius: '50%',
+          bottom: 0,
+          left: '10%',
+          right: '10%',
+          height: 3,
           background: tokens.gold,
-          color: tokens.navy,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 3,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-          animation: 'bounceIn 0.5s ease-out',
-        }}>
-          <CheckIcon animate />
-        </div>
-      )}
-
-      {/* Couples Photos Area */}
-      <div style={{
-        width: '100%',
-        padding: '24px 0',
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2,
-        overflow: 'hidden',
-      }}>
-        {/* Romantic gradient glow background */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(circle at center, rgba(201,168,76,0.2) 0%, rgba(201,168,76,0.05) 50%, transparent 70%)',
-          transition: 'opacity 0.3s ease',
-          opacity: isHovered || isSelected ? 1 : 0.6,
+          borderRadius: '2px 2px 0 0',
+          animation: 'fadeIn 0.3s ease',
         }} />
-
-        {/* Left Photo - 120px wide, 160px tall, portrait rectangular with rounded corners */}
-        <div style={{
-          width: 120,
-          height: 160,
-          borderRadius: 12,
-          overflow: 'hidden',
-          position: 'relative',
-          zIndex: 2,
-          marginRight: -16,
-          border: `3px solid ${isSelected ? tokens.gold : '#fff'}`,
-          boxShadow: isSelected ? '0 0 15px rgba(201,168,76,0.5)' : '0 2px 10px rgba(0,0,0,0.1)',
-          transition: 'all 0.3s ease',
-        }}>
-          {candidate.photo_url ? (
-            <img
-              src={candidate.photo_url}
-              alt="Partner 1"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-                transition: 'transform 0.4s ease',
-                transform: isHovered ? 'scale(1.05)' : 'scale(1)',
-              }}
-            />
-          ) : (
-            <div style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: '#ddd',
-              color: '#999',
-              fontSize: 12,
-            }}>
-              No Photo
-            </div>
-          )}
-        </div>
-
-        {/* Wedding Rings Icon - positioned absolute, centered between photos, overlapping both */}
-        <div style={{
-          position: 'relative',
-          zIndex: 4,
-          width: 40,
-          height: 40,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginLeft: -4,
-          marginRight: -4,
-          animation: isHovered || isSelected ? 'ringPulse 1.5s ease-in-out infinite' : 'none',
-        }}>
-          <img
-            src="https://cdn-icons-png.flaticon.com/512/3074/3074987.png"
-            alt="Wedding Rings"
-            width={40}
-            height={40}
-            style={{
-              filter: `${goldFilter} ${dropShadow}`,
-              animation: 'ringSway 2s ease-in-out infinite',
-              display: 'block',
-            }}
-          />
-        </div>
-
-        {/* Right Photo - 120px wide, 160px tall, portrait rectangular with rounded corners */}
-        <div style={{
-          width: 120,
-          height: 160,
-          borderRadius: 12,
-          overflow: 'hidden',
-          position: 'relative',
-          zIndex: 2,
-          marginLeft: -16,
-          border: `3px solid ${isSelected ? tokens.gold : '#fff'}`,
-          boxShadow: isSelected ? '0 0 15px rgba(201,168,76,0.5)' : '0 2px 10px rgba(0,0,0,0.1)',
-          transition: 'all 0.3s ease',
-        }}>
-          {candidate.photo_url_2 ? (
-            <img
-              src={candidate.photo_url_2}
-              alt="Partner 2"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-                transition: 'transform 0.4s ease',
-                transform: isHovered ? 'scale(1.05)' : 'scale(1)',
-              }}
-            />
-          ) : (
-            <div style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: '#ddd',
-              color: '#999',
-              fontSize: 12,
-            }}>
-              No Photo
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Couple Name */}
-      <div style={{ padding: '14px 16px 16px', position: 'relative', zIndex: 2, textAlign: 'center' }}>
-        <div style={{
-          fontFamily: tokens.fontHeading,
-          fontSize: 16,
-          fontWeight: 600,
-          marginBottom: 10,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}>
-          {candidate.name}
-        </div>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '6px 14px',
-          borderRadius: 20,
-          fontSize: 12,
-          fontWeight: 700,
-          letterSpacing: '0.3px',
-          textTransform: 'uppercase',
-          background: isSelected ? tokens.gold : '#fff',
-          color: isSelected ? tokens.navy : tokens.text,
-          border: `1.5px solid ${tokens.gold}`,
-          transition: 'all 0.3s ease',
-        }}>
-          {isSelected ? (
-            <><CheckIcon /> Selected</>
-          ) : (
-            'Select'
-          )}
-        </div>
-      </div>
-    </div>
+      )}
+    </button>
   );
 }
 
@@ -1271,14 +1092,17 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const [activeTab, setActiveTab] = useState('singles_male');
+  const [activeTab, setActiveTab] = useState('most_reserved_male');
   const [votingClosed, setVotingClosed] = useState(() => localStorage.getItem('voting_closed') === 'true');
   const [dataLoaded, setDataLoaded] = useState(false);
 
   const categories = [
-    { key: 'singles_male', label: 'Singles Male' },
-    { key: 'singles_female', label: 'Singles Female' },
-    { key: 'couples', label: 'Couples' },
+    { key: 'most_reserved_male', label: 'Most Reserved — Male' },
+    { key: 'most_reserved_female', label: 'Most Reserved — Female' },
+    { key: 'most_popular_male', label: 'Most Popular — Male' },
+    { key: 'most_popular_female', label: 'Most Popular — Female' },
+    { key: 'best_dressed_male', label: 'Best Well Dressed — Male' },
+    { key: 'best_dressed_female', label: 'Best Well Dressed — Female' },
   ];
 
   useEffect(() => {
@@ -1321,9 +1145,12 @@ function AdminDashboard() {
   const leaderboard = useMemo(() => {
     const catCandidates = candidates.filter(c => c.category === activeTab);
     const voteFieldMap = {
-      singles_male: 'singles_male_id',
-      singles_female: 'singles_female_id',
-      couples: 'couples_id',
+      most_reserved_male: 'most_reserved_male_id',
+      most_reserved_female: 'most_reserved_female_id',
+      most_popular_male: 'most_popular_male_id',
+      most_popular_female: 'most_popular_female_id',
+      best_dressed_male: 'best_dressed_male_id',
+      best_dressed_female: 'best_dressed_female_id',
     };
     const field = voteFieldMap[activeTab];
     const totalVotesForCat = votes.filter(v => v[field]).length;
@@ -1492,45 +1319,68 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — 2 rows on desktop, scrollable on mobile */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        gap: 0,
         borderBottom: '1px solid #eee',
       }}>
-        {categories.map(cat => (
-          <button
-            key={cat.key}
-            onClick={() => setActiveTab(cat.key)}
-            style={{
-              padding: '14px 24px',
-              fontFamily: tokens.fontHeading,
-              fontSize: 18,
-              fontWeight: 500,
-              color: activeTab === cat.key ? tokens.text : '#888',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'color 0.3s ease',
-              position: 'relative',
-            }}
-          >
-            {cat.label}
-            {activeTab === cat.key && (
-              <span style={{
-                position: 'absolute',
-                bottom: 0,
-                left: '10%',
-                right: '10%',
-                height: 3,
-                background: tokens.gold,
-                borderRadius: '2px 2px 0 0',
-                animation: 'fadeIn 0.3s ease',
-              }} />
-            )}
-          </button>
-        ))}
+        <div style={{
+          display: 'none',
+          '@media (min-width: 640px)': { display: 'flex' },
+        }} className="admin-desktop-tabs">
+          <style>{`
+            @media (min-width: 640px) {
+              .admin-desktop-tabs { display: flex !important; flex-direction: column; }
+              .admin-mobile-tabs { display: none !important; }
+            }
+            @media (max-width: 639px) {
+              .admin-desktop-tabs { display: none !important; }
+              .admin-mobile-tabs { display: flex !important; }
+            }
+          `}</style>
+          {/* Row 1 */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 0 }}>
+            {categories.slice(0, 3).map(cat => (
+              <TabButton
+                key={cat.key}
+                cat={cat}
+                isActive={activeTab === cat.key}
+                onClick={() => setActiveTab(cat.key)}
+              />
+            ))}
+          </div>
+          {/* Row 2 */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 0 }}>
+            {categories.slice(3, 6).map(cat => (
+              <TabButton
+                key={cat.key}
+                cat={cat}
+                isActive={activeTab === cat.key}
+                onClick={() => setActiveTab(cat.key)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Mobile: horizontal scroll */}
+        <div className="admin-mobile-tabs" style={{
+          display: 'flex',
+          overflowX: 'auto',
+          gap: 0,
+          padding: '0 10px',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}>
+          <style>{`.admin-mobile-tabs::-webkit-scrollbar { display: none; }`}</style>
+          {categories.map(cat => (
+            <TabButton
+              key={cat.key}
+              cat={cat}
+              isActive={activeTab === cat.key}
+              onClick={() => setActiveTab(cat.key)}
+              mobile
+            />
+          ))}
+        </div>
       </div>
 
       {/* Content */}
@@ -1620,13 +1470,13 @@ function LeaderboardRow({ row, idx, dataLoaded }) {
         gap: 14,
         background: tokens.cardBg,
         borderRadius: tokens.borderRadius,
-        padding: '12px 16px',
+        padding: '14px 16px',
         animation: `fadeInUpCard 0.5s ease-out ${idx * 0.08}s both`,
       }}
     >
       <div style={{
-        width: 28,
-        height: 28,
+        width: 32,
+        height: 32,
         borderRadius: '50%',
         background: idx < 3 ? tokens.gold : '#ddd',
         color: idx < 3 ? tokens.navy : '#888',
@@ -1640,24 +1490,14 @@ function LeaderboardRow({ row, idx, dataLoaded }) {
         {idx + 1}
       </div>
 
-      <div style={{
-        width: 40,
-        height: 40,
-        borderRadius: 6,
-        background: '#ddd',
-        overflow: 'hidden',
-        flexShrink: 0,
-      }}>
-        {row.photo_url ? (
-          <img src={row.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : null}
-      </div>
-
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontFamily: tokens.fontHeading, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontFamily: tokens.fontHeading, fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: tokens.gold }}>
           {row.name}
         </div>
         <div style={{ fontSize: 12, color: '#888', marginTop: 2, fontWeight: 500 }}>
+          {row.department || 'Department N/A'}
+        </div>
+        <div style={{ fontSize: 12, color: '#888', marginTop: 1, fontWeight: 500 }}>
           {animatedCount} vote{row.count !== 1 ? 's' : ''}
         </div>
       </div>
